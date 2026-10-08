@@ -27,6 +27,12 @@
 .locate-search{display:flex;flex:1;max-width:410px;min-width:min(260px,100%);border-radius:11px;background:#fff;box-shadow:0 2px 12px #1e3c5030;padding:4px}.locate-search input{border:0;outline:0;min-height:33px;width:100%;font:inherit;font-size:13px;padding:0 8px;min-width:0}.locate-search button{min-height:34px;padding:6px 12px}.search-results{position:absolute;top:62px;left:14px;z-index:900;background:#fff;border-radius:10px;box-shadow:0 10px 32px #12344833;width:min(420px,calc(100% - 28px));max-height:210px;overflow:auto;display:none}.result{padding:12px;border-bottom:1px solid #e8ecef;cursor:pointer;font-size:12px;color:#324d5f}.result:hover{background:#eef7f4}.result:last-child{border:0}
 .map-hint{position:absolute;bottom:24px;left:14px;max-width:min(360px,calc(100% - 28px));z-index:840;background:#ffffffef;box-shadow:0 3px 12px #22405720;padding:10px 12px;border-radius:10px;font-size:12px;color:#4b6477;line-height:1.5}.map-hint.error{border-left:4px solid #c45b35}.map-hint:empty{display:none}.coord-overlay{position:absolute;right:10px;top:14px;z-index:840;background:#fff;border-radius:10px;padding:7px 9px;box-shadow:0 2px 12px #17304520;font-size:11px;color:#496171}
 .click-cursor,.click-cursor .leaflet-container{cursor:crosshair!important}.popup img{width:195px;max-width:100%;height:125px;object-fit:cover;border-radius:8px;display:block;margin-bottom:5px}.popup strong{font-size:12px;overflow-wrap:anywhere;display:block}.popup small{font-size:11px;color:#62798a}
+/* Image pins shrink at city-wide zoom and expand for street-level exploration. */
+.photo-image-icon{background:transparent!important;border:0!important}
+.photo-image-wrap{display:block;width:100%;height:100%;overflow:hidden;border-radius:20%;border:2px solid #fff;background:#f0f4f8;box-shadow:0 2px 8px #102b4270;transition:box-shadow .12s}
+.photo-image-wrap img{width:100%;height:100%;display:block;object-fit:cover}
+.photo-image-wrap.mini{border-width:1px;border-radius:25%;box-shadow:0 1px 4px #102b4290}
+.photo-image-icon:hover .photo-image-wrap,.photo-image-icon:focus .photo-image-wrap{box-shadow:0 1px 0 3px #10a49b,0 4px 13px #102b4280}
 @media(max-width:760px){.top{padding:10px 12px;height:64px}.brand{font-size:18px}.subtitle{display:none}.top-actions .btn{padding:8px;min-height:36px;font-size:12px}.layout{display:flex;flex-direction:column;height:auto}.map-wrap{height:52dvh;min-height:330px;order:0;flex-shrink:0}.sidebar{order:1;overflow:visible;padding:15px;border-right:0}.map-tools{top:9px;left:9px;right:9px}.map-banner{padding:10px}.map-banner strong{font-size:13px}.map-banner .btn{font-size:12px;padding:8px}.locate-search{width:100%;max-width:none;flex:auto}.search-results{top:58px;left:9px}.coord-overlay{top:auto;bottom:84px;right:9px}.map-hint{left:9px;bottom:20px}.leaflet-control-zoom{margin-bottom:70px!important}}
 </style>
 </head>
@@ -43,7 +49,7 @@
   <div id="list"><div class="empty">No photos added yet.</div></div>
   <div class="panel subtle"><h2 style="margin-bottom:8px">Samsung photo location tips</h2><div class="muted">A street address shown in Samsung Gallery does <strong>not guarantee</strong> that GPS coordinates are inside the file your browser receives. Try selecting the <strong>original file from My Files → Internal storage → DCIM → Camera</strong>. Shared, downloaded or edited copies may not retain GPS. If you still see “No embedded GPS,” use <strong>Tap map to pin</strong> or enter coordinates.</div></div>
   <div class="panel"><h2>Backup & transfer</h2><div class="muted" style="margin-bottom:9px">Photos are stored in this browser, not on GitHub. Use a backup to move them to another device.</div><div class="setting-actions"><button class="btn" id="backupBtn">Backup photos</button><label class="btn" for="restoreFile" style="cursor:pointer">Restore backup</label><input class="hidden-file" id="restoreFile" type="file" accept="application/json,.json"><button class="btn warn" id="clearBtn">Clear all</button></div></div>
-  <details class="settings"><summary>Map provider & Google Maps</summary><p><strong>OpenStreetMap-based view:</strong> no API key or billing needed. Map tiles are provided by CARTO / OpenStreetMap. You can switch tiles if one provider isn't loading.</p><div class="setting-actions"><button class="btn" id="tilesCarto">Street map</button><button class="btn" id="tilesOSM">OSM alternative</button></div><p><strong>Google Maps requires your own Maps JavaScript API key and a Google Cloud project with billing enabled.</strong> This site cannot supply a Google API key. Protect a browser key using HTTP-referrer restrictions for <code>https://sinanaksoy.github.io/*</code> and limit it to Maps JavaScript API. <a class="link" href="https://developers.google.com/maps/documentation/javascript/get-api-key" target="_blank" rel="noopener noreferrer">Setup instructions</a>.</p><label class="setting-label" for="apiKey">Your Google Maps JavaScript API key</label><input class="field" id="apiKey" type="password" autocomplete="off" placeholder="Optional: paste your restricted key"><div class="setting-actions"><button id="googleBtn" class="btn primary">Switch to Google Maps</button><button id="freeMapBtn" class="btn">Back to free map</button></div></details>
+  <div class="panel subtle"><h2 style="margin-bottom:8px">OpenStreetMap</h2><div class="muted">Photo thumbnails become small pins at city zoom, and grow as you zoom into neighborhoods and streets. No map API key required.</div></div>
   <p class="sidebar-footer">Privacy: uploads stay in your browser and are stored locally in IndexedDB. Map requests (and manual place searches) contact third-party map services. Web storage can be cleared by the browser. This site needs an internet connection for maps and enhanced metadata reading.</p>
 </aside>
 <section class="map-wrap" id="mapWrap" aria-label="Interactive photo map">
@@ -62,7 +68,7 @@
 (() => {
 'use strict';
 const $=id=>document.getElementById(id);
-const state={photos:[],markers:new Map(),selected:null,placing:null,provider:'free',tile:'carto',googleMap:null,baseLayer:null,map:null,db:null,libraryReady:false};
+const state={photos:[],markers:new Map(),selected:null,placing:null,baseLayer:null,map:null,db:null,libraryReady:false};
 const missingPreview='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="140" height="150"><rect width="100%" height="100%" fill="#e0e9ef"/><text x="50%" y="55%" text-anchor="middle" font-size="13" fill="#62798a">Preview unavailable</text></svg>');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid=()=>globalThis.crypto?.randomUUID?.()||'photo-'+Date.now()+'-'+Math.random().toString(36).slice(2);
@@ -133,16 +139,46 @@ async function addPhotos(fileList){
  for(const f of files){try{let info=await photoLocation(f);let p={id:uid(),name:f.name,date:new Date(f.lastModified||Date.now()).toISOString(),image:await thumbnail(f),...info};await dbOp('put',p);state.photos.push(p);added++;if(pinned(p))good++;else {failed++;firstUnlocated??=p.id;}}catch(e){notify(`Could not import ${f.name}: ${e.message}`,true);}}
  render();if(good)fitAll();if(added){notify(`${added} added · ${good} GPS pins found · ${failed} need manual location. ${failed?'Choose “Tap map to pin” on an unlocated photo.':''}`);if(firstUnlocated){startPin(firstUnlocated,false);}}$('files').value='';
 }
-function popup(p){return `<div class="popup"><img src="${p.image||missingPreview}" onerror="this.style.display='none'" alt="Photo preview"><strong>${esc(p.name)}</strong><small>${formatted(p)}</small></div>`;}
-function clearPins(){for(const m of state.markers.values()){if(state.provider==='free')m.remove();else m.setMap(null);}state.markers.clear();}
-function pins(){if(state.provider==='free'&&!state.map||state.provider==='google'&&!state.googleMap)return;clearPins();for(const p of state.photos){if(!pinned(p))continue;
- if(state.provider==='free'){
-   let m=L.marker([p.lat,p.lng],{draggable:true,autoPan:true}).addTo(state.map).bindPopup(popup(p));
-   m.on('click',()=>{state.selected=p.id;renderList();});m.on('dragend',e=>savePin(p.id,e.target.getLatLng().lat,e.target.getLatLng().lng));state.markers.set(p.id,m);
- }else{
-   let m=new google.maps.Marker({map:state.googleMap,position:{lat:p.lat,lng:p.lng},draggable:true,title:p.name});
-   let info=new google.maps.InfoWindow({content:popup(p)});m.addListener('click',()=>{state.selected=p.id;renderList();info.open(state.googleMap,m);});m.addListener('dragend',e=>savePin(p.id,e.latLng.lat(),e.latLng.lng()));state.markers.set(p.id,m);
- }}}
+function popup(p){return `<div class="popup"><img src="${esc(p.image||missingPreview)}" onerror="this.style.display='none'" alt="Photo preview"><strong>${esc(p.name)}</strong><small>${formatted(p)}</small></div>`;}
+function clearPins(){for(const marker of state.markers.values())marker.remove();state.markers.clear();}
+// The marker stays anchored to its geographic point even as its thumbnail shrinks.
+function photoIconSize(zoom){
+ if(zoom<=10)return 12;
+ if(zoom<=12)return 16;
+ if(zoom===13)return 28;
+ if(zoom===14)return 42;
+ return 60;
+}
+function photoIcon(photo, zoom){
+ let size=photoIconSize(zoom);
+ return L.divIcon({
+  className:'photo-image-icon',
+  html:`<span class="photo-image-wrap ${size<=18?'mini':''}"><img src="${esc(photo.image||missingPreview)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></span>`,
+  iconSize:[size,size],iconAnchor:[size/2,size],popupAnchor:[0,-size]
+ });
+}
+function updateThumbnailSizes(){
+ if(!state.map)return;
+ const zoom=state.map.getZoom();
+ for(const [id,marker] of state.markers){
+  let p=state.photos.find(photo=>photo.id===id);
+  if(p)marker.setIcon(photoIcon(p,zoom));
+ }
+}
+function pins(){
+ if(!state.map)return;
+ clearPins();
+ for(const p of state.photos){
+  if(!pinned(p))continue;
+  const marker=L.marker([p.lat,p.lng],{
+   draggable:true,autoPan:true,riseOnHover:true,title:p.name,
+   icon:photoIcon(p,state.map.getZoom())
+  }).addTo(state.map).bindPopup(popup(p));
+  marker.on('click',()=>{state.selected=p.id;renderList();});
+  marker.on('dragend',e=>savePin(p.id,e.target.getLatLng().lat,e.target.getLatLng().lng));
+  state.markers.set(p.id,marker);
+ }
+}
 function renderList(){let q=$('photoSearch').value.trim().toLowerCase(),sorted=[...state.photos].sort((a,b)=>Number(pinned(a))-Number(pinned(b)));let selected=sorted.filter(p=>p.name.toLowerCase().includes(q));$('count').textContent=`${state.photos.length} photos · ${state.photos.filter(pinned).length} pinned`;
  $('list').innerHTML=selected.length?selected.map(p=>`<article class="photo ${!pinned(p)?'pending':''} ${state.selected===p.id?'active':''}" data-id="${esc(p.id)}"><img src="${p.image||missingPreview}" onerror="this.src='${missingPreview}'" alt="" loading="lazy"><div><div class="name">${esc(p.name)}</div><div class="coordinates">${esc(formatted(p))}</div><div class="status">${pinned(p)?'✓ Located ('+esc(p.source||'GPS')+')':'● Location needed'}</div><div class="why">${esc(p.detail||'')}</div><div class="photo-actions"><button class="btn ${pinned(p)?'':'primary'}" data-action="pin" data-id="${esc(p.id)}">${pinned(p)?'Move pin':'Tap map to pin'}</button><button class="btn" data-action="coords" data-id="${esc(p.id)}">Enter coordinates</button><button class="btn warn" data-action="remove" data-id="${esc(p.id)}">Delete</button></div></div></article>`).join(''):'<div class="empty">No photos found.</div>';
 }
@@ -150,37 +186,36 @@ function render(){renderList();pins();}
 function setMapCursor(on){$('mapWrap').classList.toggle('click-cursor',on);$('pinBanner').classList.toggle('visible',on);}
 function startPin(id,scroll=true){let p=state.photos.find(x=>x.id===id);if(!p)return;state.placing=id;state.selected=id;$('pinTitle').textContent=`Tap map to pin: ${p.name}`;setMapCursor(true);renderList();hint('Pin mode: pan or zoom, then tap the exact place. Search above to jump to a city or address.');if(scroll)$('mapWrap').scrollIntoView({behavior:'smooth',block:'start'});}
 function cancelPin(){state.placing=null;setMapCursor(false);hint('Move and zoom the map; choose a photo to start pinning.');}
-async function savePin(id,lat,lng){if(!valid(lat,lng)){notify('Invalid GPS coordinates.',true);return;}let p=state.photos.find(x=>x.id===id);if(!p)return;let before={lat:p.lat,lng:p.lng,source:p.source,detail:p.detail};p.lat=+lat;p.lng=+lng;p.source='Manual pin';p.detail='Placed on map or by entering coordinates';try{await dbOp('put',p);state.selected=p.id;cancelPin();render();center(p.lat,p.lng,15);notify(`Saved pin: ${p.name}`);let m=state.markers.get(id);if(state.provider==='free')m?.openPopup();}catch(e){Object.assign(p,before);notify('Saving pin failed: '+e.message,true);render();}}
-function center(lat,lng,z=13){if(state.provider==='free'&&state.map)state.map.setView([lat,lng],z);if(state.provider==='google'&&state.googleMap){state.googleMap.setCenter({lat,lng});state.googleMap.setZoom(z);}}
-function fitAll(){let photos=state.photos.filter(pinned);if(!photos.length)return;if(photos.length===1){center(photos[0].lat,photos[0].lng,13);return;}
- if(state.provider==='free'&&state.map){state.map.fitBounds(L.latLngBounds(photos.map(p=>[p.lat,p.lng])),{padding:[40,40],maxZoom:16});}
- if(state.provider==='google'&&state.googleMap){let bounds=new google.maps.LatLngBounds();for(let p of photos)bounds.extend({lat:p.lat,lng:p.lng});state.googleMap.fitBounds(bounds);}}
-async function freeMap(){clearPins();state.provider='free';state.googleMap=null;$('map').replaceChildren();if(!window.L){hint('Map library could not load. Check your internet or try another browser.',true);return;}
+async function savePin(id,lat,lng){if(!valid(lat,lng)){notify('Invalid GPS coordinates.',true);return;}let p=state.photos.find(x=>x.id===id);if(!p)return;let before={lat:p.lat,lng:p.lng,source:p.source,detail:p.detail};p.lat=+lat;p.lng=+lng;p.source='Manual pin';p.detail='Placed on map or by entering coordinates';try{await dbOp('put',p);state.selected=p.id;cancelPin();render();center(p.lat,p.lng,15);notify(`Saved pin: ${p.name}`);state.markers.get(id)?.openPopup();}catch(e){Object.assign(p,before);notify('Saving pin failed: '+e.message,true);render();}}
+function center(lat,lng,z=13){if(state.map)state.map.setView([lat,lng],z);}
+function fitAll(){
+ let photos=state.photos.filter(pinned);if(!photos.length||!state.map)return;
+ if(photos.length===1){center(photos[0].lat,photos[0].lng,13);return;}
+ state.map.fitBounds(L.latLngBounds(photos.map(p=>[p.lat,p.lng])),{padding:[40,40],maxZoom:16});
+}
+async function initMap(){
+ clearPins();$('map').replaceChildren();
+ if(!window.L){hint('Map library could not load. Check your internet or try another browser.',true);return;}
  if(state.map){try{state.map.remove();}catch(e){}state.map=null;}
  state.map=L.map('map',{zoomControl:false,zoomSnap:1,scrollWheelZoom:true,doubleClickZoom:true,touchZoom:true,worldCopyJump:true}).setView([25,15],2);
  L.control.zoom({position:'bottomright'}).addTo(state.map);
  state.map.on('click',e=>{if(state.placing)savePin(state.placing,e.latlng.lat,e.latlng.lng);});
  state.map.on('mousemove',e=>{if(state.placing)$('coords').textContent=`${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;});
  state.map.on('moveend',()=>{if(!state.placing)$('coords').textContent='Zoom + / − · Drag to move';});
- setTiles(state.tile);pins();fitAll();setTimeout(()=>state.map?.invalidateSize(),100);requestAnimationFrame(()=>state.map?.invalidateSize());
+ state.map.on('zoomend',updateThumbnailSizes);
+ state.baseLayer=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+  keepBuffer:5,updateWhenIdle:true
+ }).addTo(state.map);
+ let loaded=false,errors=0;
+ state.baseLayer.on('tileload',()=>{if(!loaded){loaded=true;hint('');}});
+ state.baseLayer.on('tileerror',()=>{errors++;if(errors>=3&&!loaded)hint('OpenStreetMap tiles could not load. Check your network and reload the page.',true);});
+ pins();fitAll();
+ setTimeout(()=>state.map?.invalidateSize(),100);
+ requestAnimationFrame(()=>state.map?.invalidateSize());
  window.addEventListener('resize',()=>state.map?.invalidateSize(),{passive:true});
  if(window.ResizeObserver)new ResizeObserver(()=>state.map?.invalidateSize()).observe($('mapWrap'));
 }
-function setTiles(name){state.tile=name;if(state.provider!=='free'||!state.map)return;
- if(state.baseLayer)state.map.removeLayer(state.baseLayer);
- let carto=name==='carto';let url=carto?'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png':'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
- state.baseLayer=L.tileLayer(url,{maxZoom:19,subdomains:carto?'abcd':'',attribution:carto?'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>':'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',keepBuffer:5,updateWhenIdle:true}).addTo(state.map);
- let loaded=false,errors=0;state.baseLayer.on('tileload',()=>{if(!loaded){loaded=true;hint('');}});
- state.baseLayer.on('tileerror',()=>{errors++;if(errors>=3&&!loaded)hint('Map tiles failed to load. Open “Map provider & Google Maps” below and try OSM alternative / Street map; check your network.',true);});
- // Prevent stale "map torn" states after a tile-provider switch or resize.
- requestAnimationFrame(()=>state.map?.invalidateSize());
-}
-async function switchGoogle(){let key=$('apiKey').value.trim();if(!key){notify('Google Maps requires your own Maps JavaScript API key. Free street map works without one.',true);return;}
- try{localStorage.setItem('photo-atlas-key',key);}catch(e){}
- if(!window.google?.maps?.Map){window.photoAtlasGoogleReady=()=>activateGoogle();window.gm_authFailure=()=>{notify('Google Maps authorization error: check billing, key and website restrictions.',true);hint('Google Maps authorization failed. Choose Back to free map.',true);};
-  notify('Loading Google Maps…');try{await loadScript('https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key)+'&callback=photoAtlasGoogleReady');}catch(e){notify('Cannot load Google Maps. Check your API key and internet. Free map remains available.',true);}return;
- }activateGoogle();}
-function activateGoogle(){clearPins();if(state.map){state.map.remove();state.map=null;}$('map').replaceChildren();state.provider='google';state.googleMap=new google.maps.Map($('map'),{zoom:2,center:{lat:25,lng:15},zoomControl:true,mapTypeControl:false,fullscreenControl:false,streetViewControl:false});state.googleMap.addListener('click',e=>{if(state.placing)savePin(state.placing,e.latLng.lat(),e.latLng.lng());});pins();fitAll();hint('');notify('Google Maps is active.');}
 function coordinatesDialog(id){let p=state.photos.find(x=>x.id===id);let val=window.prompt('Enter latitude, longitude as decimal numbers (example: 41.0082, 28.9784)',pinned(p)?`${p.lat}, ${p.lng}`:'');if(val===null)return;let parts=val.split(/[,;\s]+/).filter(Boolean).map(Number);if(parts.length!==2||!valid(parts[0],parts[1])){notify('Coordinates must be two decimal numbers: latitude, longitude.',true);return;}savePin(id,parts[0],parts[1]);}
 let lastSearch=0;
 async function searchPlace(){let q=$('placeSearch').value.trim();if(q.length<3){hint('Type at least 3 characters to search for a place.',true);return;}if(Date.now()-lastSearch<1200)return;lastSearch=Date.now();$('searchPlace').disabled=true;hint('Searching for “'+q+'”…');$('searchResults').style.display='none';
@@ -194,9 +229,8 @@ async function init(){
   loadOne(['https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js','https://unpkg.com/exifr@7.1.3/dist/full.umd.js'],()=>!!window.exifr)
  ]);
  state.libraryReady=libs[1];if(!libs[0])hint('Map scripts could not load. Please check your connection or browser settings.',true);
- if(libs[0])await freeMap();
+ if(libs[0])await initMap();
  try{state.db=await initDb();state.photos=await dbOp('getAll');render();fitAll();}catch(e){notify('Your browser does not allow local photo storage: '+e.message,true);}
- try{$('apiKey').value=localStorage.getItem('photo-atlas-key')||'';}catch(e){}
  if(!libs[1])notify('Enhanced metadata reader unavailable. Standard JPEG GPS reading still works; HEIC/PNG detection may not.',true);
 }
 $('files').addEventListener('change',e=>addPhotos(e.target.files));
@@ -209,9 +243,6 @@ $('list').addEventListener('click',async e=>{
 });
 $('cancelPin').onclick=cancelPin;
 $('searchPlace').onclick=searchPlace;$('placeSearch').addEventListener('keydown',e=>{if(e.key==='Enter')searchPlace();});
-$('tilesCarto').onclick=()=>{if(state.provider!=='free'){freeMap().then(()=>setTiles('carto'));}else setTiles('carto');};
-$('tilesOSM').onclick=()=>{if(state.provider!=='free'){freeMap().then(()=>setTiles('osm'));}else setTiles('osm');};
-$('googleBtn').onclick=switchGoogle;$('freeMapBtn').onclick=()=>{if(state.provider!=='free')freeMap().then(()=>notify('Switched to free street map.'));};
 $('exportBtn').onclick=()=>{let geo={type:'FeatureCollection',features:state.photos.filter(pinned).map(p=>({type:'Feature',geometry:{type:'Point',coordinates:[p.lng,p.lat]},properties:{id:p.id,name:p.name,source:p.source,date:p.date}}))};download(JSON.stringify(geo,null,2),'photo-atlas.geojson','application/geo+json');};
 function download(data,name,type){let blob=new Blob([data],{type});let u=URL.createObjectURL(blob);let a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000);}
 $('backupBtn').onclick=()=>download(JSON.stringify(state.photos),'photo-atlas-backup.json','application/json');
@@ -219,7 +250,7 @@ $('restoreFile').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let
 $('clearBtn').onclick=async()=>{if(!confirm('Delete all saved photos and pins from this browser?'))return;for(let p of state.photos)await dbOp('delete',p.id);state.photos=[];cancelPin();render();notify('Collection cleared.');};
 const drop=$('drop');for(let evt of ['dragenter','dragover'])drop.addEventListener(evt,e=>{e.preventDefault();drop.classList.add('drag');});for(let evt of ['drop','dragleave'])drop.addEventListener(evt,e=>{e.preventDefault();drop.classList.remove('drag');});drop.addEventListener('drop',e=>addPhotos(e.dataTransfer.files));
 // Test-only access to deterministic parsing and UI flows.
-window.PhotoAtlasDiagnostics={jpegGps,photoLocation,addPhotos,startPin,savePin,valid,get state(){return state;}};
+window.PhotoAtlasDiagnostics={jpegGps,photoLocation,addPhotos,startPin,savePin,photoIconSize,updateThumbnailSizes,valid,get state(){return state;}};
 init();
 })();
 </script>
